@@ -634,12 +634,9 @@ generate_config_file() {
     echo -e "${red}2. 生成的配置文件会保存到 /etc/V2bX/config.json${plain}"
     echo -e "${red}3. 原来的配置文件会保存到 /etc/V2bX/config.json.bak${plain}"
     echo -e "${red}4. 目前仅部分支持TLS${plain}"
-    echo -e "${red}5. 使用此功能生成的配置文件会自带审计，确定继续？(y/n)${plain}"
-    read -rp "请输入：" continue_prompt
-    if [[ "$continue_prompt" =~ ^[Nn][Oo]? ]]; then
-        exit 0
-    fi
-    
+    echo -e "${red}5. 使用此功能生成的配置文件会自带审计${plain}"
+    echo -e "${green}已自动确认继续...${plain}"
+
     nodes_config=()
     first_node=true
     core_xray=false
@@ -657,9 +654,24 @@ generate_config_file() {
                 echo
                 [[ -z "${ApiKey}" ]] && ApiKey="${saved_ApiKey}"
             else
-            read -rp "请输入机场网址(https://example.com)：" ApiHost
-            read -rp "请输入面板对接API Key：" ApiKey
-            read -rp "是否设置固定的机场网址和API Key？(y/n)" fixed_api
+            echo -e "${yellow}提示：支持直接粘贴「站点 密钥」或「站点,密钥」或「站点|密钥」，自动拆分${plain}"
+            read -rp "请输入机场网址和API Key(可一起粘贴，用空格/逗号/竖线分隔)：" api_input
+            if [[ "$api_input" =~ ^[[:space:]]*([^[:space:],|]+)[[:space:],|]+(.+)$ ]]; then
+                ApiHost="${BASH_REMATCH[1]}"
+                ApiKey="${BASH_REMATCH[2]}"
+                # 去除首尾空白
+                ApiHost="$(echo "$ApiHost" | xargs)"
+                ApiKey="$(echo "$ApiKey" | xargs)"
+                echo -e "${green}已自动拆分：站点=${ApiHost} 密钥=${ApiKey}${plain}"
+            elif [[ -n "$api_input" ]]; then
+                ApiHost="$api_input"
+                read -rp "请输入面板对接API Key：" ApiKey
+            else
+                echo -e "${red}未输入机场网址，已退出${plain}"
+                exit 0
+            fi
+            read -rp "是否设置固定的机场网址和API Key？(y/n，默认y)" fixed_api
+            [[ -z "$fixed_api" ]] && fixed_api="y"
             fi
             saved_ApiHost="${ApiHost}"
             saved_ApiKey="${ApiKey}"
@@ -678,8 +690,19 @@ generate_config_file() {
                 ApiKey="${saved_ApiKey}"
                 echo "Reusing ApiHost and ApiKey from /etc/V2bX/config.json"
             elif [ "$fixed_api_info" = false ]; then
-                read -rp "请输入机场网址：" ApiHost
-                read -rp "请输入面板对接API Key：" ApiKey
+                read -rp "请输入机场网址和API Key（支持空格/制表符/逗号分隔，直接粘贴即可）：" ApiInput
+                if [[ "$ApiInput" =~ ^[[:space:]]* ]]; then
+                    echo -e "${red}输入不能为空，请重新输入${plain}"
+                    continue
+                fi
+                ApiHost=$(echo "$ApiInput" | awk '{print $1}')
+                ApiKey=$(echo "$ApiInput" | sed 's/^[^[:space:]|,，]*[[:space:]|,，]*//')
+                if [[ -z "$ApiKey" ]]; then
+                    echo -e "${red}未检测到API Key，请输入格式：机场网址 API Key${plain}"
+                    continue
+                fi
+                echo -e "${green}已识别机场网址: ${ApiHost}${plain}"
+                echo -e "${green}已识别API Key: ${ApiKey:0:4}****${plain}"
             fi
             saved_ApiHost="${ApiHost}"
             saved_ApiKey="${ApiKey}"

@@ -209,11 +209,8 @@ generate_config_file() {
     echo -e "${red}2. 生成的配置文件会保存到 /etc/V2bX/config.json${plain}"
     echo -e "${red}3. 原来的配置文件会保存到 /etc/V2bX/config.json.bak${plain}"
     echo -e "${red}4. 目前仅部分支持TLS${plain}"
-    echo -e "${red}5. 使用此功能生成的配置文件会自带审计，确定继续？(y/n)${plain}"
-    read -rp "请输入：" continue_prompt
-    if [[ "$continue_prompt" =~ ^[Nn][Oo]? ]]; then
-        exit 0
-    fi
+    echo -e "${red}5. 使用此功能生成的配置文件会自带审计${plain}"
+    echo -e "${green}已自动确认继续...${plain}"
     
     nodes_config=()
     first_node=true
@@ -225,8 +222,15 @@ generate_config_file() {
     
     while true; do
         if [ "$first_node" = true ]; then
-            read -rp "请输入机场网址(https://example.com)：" ApiHost
-            read -rp "请输入面板对接API Key：" ApiKey
+            read -rp "请输入机场网址和API Key（支持粘贴: https://example.com  ApiKey 或分开输入）：" input
+            if [[ "$input" =~ ^[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+) ]]; then
+                ApiHost="${BASH_REMATCH[1]}"
+                ApiKey="${BASH_REMATCH[2]}"
+                echo -e "${green}已自动识别：站点=${ApiHost}，密钥已读取${plain}"
+            else
+                ApiHost="${input}"
+                read -rp "请输入面板对接API Key：" ApiKey
+            fi
             read -rp "是否设置固定的机场网址和API Key？(y/n)" fixed_api
             if [ "$fixed_api" = "y" ] || [ "$fixed_api" = "Y" ]; then
                 fixed_api_info=true
@@ -239,8 +243,15 @@ generate_config_file() {
             if [[ "$continue_adding_node" =~ ^[Nn][Oo]? ]]; then
                 break
             elif [ "$fixed_api_info" = false ]; then
-                read -rp "请输入机场网址(https://example.com)：" ApiHost
-                read -rp "请输入面板对接API Key：" ApiKey
+                read -rp "请输入机场网址和API Key（支持粘贴: https://example.com  ApiKey 或分开输入）：" input
+                if [[ "$input" =~ ^[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+) ]]; then
+                    ApiHost="${BASH_REMATCH[1]}"
+                    ApiKey="${BASH_REMATCH[2]}"
+                    echo -e "${green}已自动识别：站点=${ApiHost}，密钥已读取${plain}"
+                else
+                    ApiHost="${input}"
+                    read -rp "请输入面板对接API Key：" ApiKey
+                fi
             fi
             add_node_config
         fi
