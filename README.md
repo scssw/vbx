@@ -13,6 +13,6 @@ Find the source code here: [InazumaV/V2bX](https://github.com/InazumaV/V2bX)
 
 # 一键安装
 
-```
-wget -N https://raw.githubusercontent.com/wyusgw/V2bX-script/master/install.sh && bash install.sh
+```bash
+wget -N https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/install.sh && bash install.sh
 ```

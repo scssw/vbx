@@ -1,6 +1,11 @@
 #!/bin/bash
 # 一键配置
 
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+plain='\033[0m'
+
 # 检查系统是否有 IPv6 地址
 check_ipv6_support() {
     if ip -6 addr | grep -q "inet6"; then
@@ -220,21 +225,45 @@ generate_config_file() {
     fixed_api_info=false
     check_api=false
     
+    saved_ApiHost=""
+    saved_ApiKey=""
+    if [[ -s "/etc/V2bX/config.json" ]]; then
+        saved_ApiHost=$(sed -n 's/.*"ApiHost":[[:space:]]*"\([^"]*\)".*/\1/p' "/etc/V2bX/config.json" | head -n 1)
+        saved_ApiKey=$(sed -n 's/.*"ApiKey":[[:space:]]*"\([^"]*\)".*/\1/p' "/etc/V2bX/config.json" | head -n 1)
+    fi
+    
     while true; do
         if [ "$first_node" = true ]; then
-            read -rp "请输入机场网址和API Key（支持粘贴: https://example.com  ApiKey 或分开输入）：" input
-            if [[ "$input" =~ ^[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+) ]]; then
-                ApiHost="${BASH_REMATCH[1]}"
-                ApiKey="${BASH_REMATCH[2]}"
-                echo -e "${green}已自动识别：站点=${ApiHost}，密钥已读取${plain}"
+            if [[ -n "${saved_ApiHost}" && -n "${saved_ApiKey}" ]]; then
+                read -rp "机场网址 (回车直接复用 ${saved_ApiHost}): " ApiHost
+                [[ -z "${ApiHost}" ]] && ApiHost="${saved_ApiHost}"
+                read -rp "API Key (回车直接复用已有密钥): " ApiKey
+                [[ -z "${ApiKey}" ]] && ApiKey="${saved_ApiKey}"
             else
-                ApiHost="${input}"
-                read -rp "请输入面板对接API Key：" ApiKey
+                echo -e "${yellow}提示：支持直接粘贴「网址 密钥」(可用空格、制表符、逗号或竖线分隔)，也可以分开输入${plain}"
+                read -rp "请输入机场网址和API Key：" api_input
+                if [[ "$api_input" =~ ^[[:space:]]*([^[:space:],|，]+)[[:space:],|，]+(.+)$ ]]; then
+                    ApiHost="${BASH_REMATCH[1]}"
+                    ApiKey="${BASH_REMATCH[2]}"
+                    ApiHost="$(echo "$ApiHost" | xargs)"
+                    ApiKey="$(echo "$ApiKey" | xargs)"
+                    echo -e "${green}已自动拆分：站点=${ApiHost} 密钥=${ApiKey}${plain}"
+                elif [[ -n "$api_input" ]]; then
+                    ApiHost="$(echo "$api_input" | xargs)"
+                    read -rp "请输入面板对接API Key：" ApiKey
+                    ApiKey="$(echo "$ApiKey" | xargs)"
+                else
+                    echo -e "${red}未输入机场网址，已退出${plain}"
+                    return 1
+                fi
+                read -rp "是否设置固定的机场网址和API Key？(y/n，默认y): " fixed_api
+                [[ -z "$fixed_api" ]] && fixed_api="y"
             fi
-            read -rp "是否设置固定的机场网址和API Key？(y/n)" fixed_api
+            saved_ApiHost="${ApiHost}"
+            saved_ApiKey="${ApiKey}"
             if [ "$fixed_api" = "y" ] || [ "$fixed_api" = "Y" ]; then
                 fixed_api_info=true
-                echo -e "${red}成功固定地址${plain}"
+                echo -e "${green}成功固定站点与密钥配置${plain}"
             fi
             first_node=false
             add_node_config
@@ -242,16 +271,26 @@ generate_config_file() {
             read -rp "是否继续添加节点配置？(回车继续，输入n或no退出)" continue_adding_node
             if [[ "$continue_adding_node" =~ ^[Nn][Oo]? ]]; then
                 break
+            elif [ "$fixed_api_info" = false ] && [[ -n "${saved_ApiHost}" && -n "${saved_ApiKey}" ]]; then
+                ApiHost="${saved_ApiHost}"
+                ApiKey="${saved_ApiKey}"
+                echo -e "${green}复用已有机场网址与密钥配置${plain}"
             elif [ "$fixed_api_info" = false ]; then
-                read -rp "请输入机场网址和API Key（支持粘贴: https://example.com  ApiKey 或分开输入）：" input
-                if [[ "$input" =~ ^[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+) ]]; then
+                echo -e "${yellow}提示：支持直接粘贴「网址 密钥」(可用空格、制表符、逗号或竖线分隔)，也可以分开输入${plain}"
+                read -rp "请输入机场网址和API Key：" api_input
+                if [[ "$api_input" =~ ^[[:space:]]*([^[:space:],|]+)[[:space:],|]+(.+)$ ]]; then
                     ApiHost="${BASH_REMATCH[1]}"
                     ApiKey="${BASH_REMATCH[2]}"
-                    echo -e "${green}已自动识别：站点=${ApiHost}，密钥已读取${plain}"
-                else
-                    ApiHost="${input}"
+                    ApiHost="$(echo "$ApiHost" | xargs)"
+                    ApiKey="$(echo "$ApiKey" | xargs)"
+                    echo -e "${green}已自动拆分：站点=${ApiHost} 密钥=${ApiKey}${plain}"
+                elif [[ -n "$api_input" ]]; then
+                    ApiHost="$(echo "$api_input" | xargs)"
                     read -rp "请输入面板对接API Key：" ApiKey
+                    ApiKey="$(echo "$ApiKey" | xargs)"
                 fi
+                saved_ApiHost="${ApiHost}"
+                saved_ApiKey="${ApiKey}"
             fi
             add_node_config
         fi
@@ -516,5 +555,13 @@ masquerade:
   type: 404
 EOF
     echo -e "${green}V2bX 配置文件生成完成,正在重新启动服务${plain}"
-    v2bx restart
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart V2bX
+    elif command -v service >/dev/null 2>&1; then
+        service V2bX restart
+    elif command -v V2bX >/dev/null 2>&1; then
+        V2bX restart
+    elif command -v v2bx >/dev/null 2>&1; then
+        v2bx restart
+    fi
 }
