@@ -301,8 +301,8 @@ install_bbr() {
 }
 
 update_shell() {
-    wget -O /usr/bin/V2bX -N --no-check-certificate https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/V2bX.sh
-    if [[ $? != 0 ]]; then
+    curl -sL https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/V2bX.sh | tr -d '\r' > /usr/bin/V2bX
+    if [[ $? != 0 || ! -s /usr/bin/V2bX ]]; then
         echo ""
         echo -e "${red}下载脚本失败，请检查本机能否连接 Github${plain}"
         before_show_menu

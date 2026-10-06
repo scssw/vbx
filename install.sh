@@ -246,7 +246,7 @@ EOF
     if [[ ! -f /etc/V2bX/custom_inbound.json ]]; then
         cp custom_inbound.json /etc/V2bX/
     fi
-    curl -o /usr/bin/V2bX -Ls https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/V2bX.sh
+    curl -sL https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/V2bX.sh | tr -d '\r' > /usr/bin/V2bX
     chmod +x /usr/bin/V2bX
     rm -f /usr/bin/v2bx
     ln -sf /usr/bin/V2bX /usr/bin/v2bx
@@ -276,9 +276,9 @@ EOF
     if [[ $first_install == true ]]; then
         read -rp "检测到你为第一次安装V2bX,是否自动直接生成配置文件？(y/n): " if_generate
         if [[ $if_generate == [Yy] ]]; then
-            curl -o ./initconfig.sh -Ls https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/initconfig.sh
-            source initconfig.sh
-            rm initconfig.sh -f
+            curl -sL https://raw.githubusercontent.com/scssw/vbx/refs/heads/main/initconfig.sh | tr -d '\r' > ./initconfig.sh
+            source ./initconfig.sh
+            rm -f ./initconfig.sh
             generate_config_file
         fi
     fi
